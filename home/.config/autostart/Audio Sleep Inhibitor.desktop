@@ -1,0 +1,16 @@
+[Desktop Entry]
+Comment[pl_PL]=Utrzymywanie aktywności karty dźwiękowej
+Comment=Utrzymywanie aktywności karty dźwiękowej
+Exec=/home/pandetthe/.local/bin/audio-inhibit.sh
+GenericName[pl_PL]=
+GenericName=
+Icon=com.spotify.Client
+MimeType=
+Name[pl_PL]=Blokada usypiania dźwięku
+Name=Blokada usypiania dźwięku
+StartupNotify=false
+Terminal=false
+TerminalOptions=
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=

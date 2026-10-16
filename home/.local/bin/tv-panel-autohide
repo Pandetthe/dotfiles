@@ -1,0 +1,55 @@
+#!/bin/bash
+# Chroni OLED telewizora (LG C5 na HDMI-A-1) przed wypaleniem paska KDE:
+# panel wyświetlany na telewizorze dostaje automatyczne ukrywanie, pozostałe
+# panele i wszystkie panele po odłączeniu TV wracają do "zawsze widoczny".
+# Panele w Plasmie są przypisane do numeru ekranu, nie do wyjścia, więc panel
+# na TV rozpoznajemy po położeniu ekranu (geometria z kscreen-doctor).
+# Uruchamiane jako usługa: ~/.config/systemd/user/tv-panel-autohide.service
+TV=HDMI-A-1
+DRM=/sys/class/drm/card1-$TV
+INTERVAL=3
+
+tv_geometry() {
+    # "x,y WxH" telewizora, tylko gdy jest podłączony i włączony
+    [[ $(cat "$DRM/status" 2>/dev/null) == connected && $(cat "$DRM/enabled" 2>/dev/null) == enabled ]] || return
+    kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' |
+        awk -v tv="$TV" '/^Output/{n=$3; en=0} /^\tenabled/{en=1} /Geometry:/{if (n==tv && en) print $2, $3}'
+}
+
+apply() {
+    local geo=$1 x y w h
+    if [[ -n $geo ]]; then
+        x=${geo%%,*}; y=${geo#*,}; y=${y%% *}; w=${geo##* }; h=${w#*x}; w=${w%x*}
+    else
+        x=; y=; w=; h=
+    fi
+    qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var tv = '$x' === '' ? null : {x: $x+0, y: ${y:-0}+0, w: ${w:-0}+0, h: ${h:-0}+0};
+        var out = [];
+        panels().forEach(function (p) {
+            var onTv = false;
+            if (tv && p.screen >= 0) {
+                var g = screenGeometry(p.screen);
+                onTv = g.x == tv.x && g.y == tv.y && g.width == tv.w && g.height == tv.h;
+            }
+            var want = onTv ? 'autohide' : 'none';
+            if (p.hiding != want) { p.hiding = want; }
+            out.push(p.id + ':' + p.hiding);
+        });
+        print(out.join(' '));
+    " 2>/dev/null
+}
+
+last=
+while true; do
+    geo=$(tv_geometry)
+    # plasmashell PID w sygnaturze: po restarcie Plasmy stan jest stosowany ponownie
+    sig="$geo|$(pgrep -x plasmashell | head -1)"
+    if [[ $sig != "$last" ]]; then
+        if result=$(apply "$geo") && [[ -n $result ]]; then
+            echo "TV: ${geo:-brak} → panele: $result"
+            last=$sig
+        fi
+    fi
+    sleep "$INTERVAL"
+done

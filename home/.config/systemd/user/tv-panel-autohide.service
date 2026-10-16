@@ -1,0 +1,12 @@
+[Unit]
+Description=Autoukrywanie paska KDE na telewizorze OLED (ochrona przed wypaleniem)
+After=plasma-plasmashell.service
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/tv-panel-autohide
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=plasma-workspace.target
