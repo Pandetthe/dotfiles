@@ -22,7 +22,7 @@ files are in Polish.
 |---|---|
 | `zsh-omz.sh` | installs zsh, Oh My Zsh, Powerlevel10k and plugins, writes the first `.zshrc` |
 | `konsola.sh` | MesloLGS NF font, Catppuccin Mocha colour scheme and a default Konsole profile |
-| `snapshoty.sh` | snapper for `/` and `/home`, retention limits, timers and the `dnf-snap` wrapper |
+| `snapshoty.sh` | snapper for `/` and `/home`, retention limits, timers and pre/post snapshots on every dnf transaction (libdnf5 actions plugin) |
 
 `.zshrc` in `home/` is the current version. It has moved on from the one `zsh-omz.sh` writes.
 

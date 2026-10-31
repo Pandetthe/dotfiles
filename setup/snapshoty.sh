@@ -26,12 +26,12 @@ sudo snapper -c root set-config \
   TIMELINE_CREATE=no \
   TIMELINE_CLEANUP=yes \
   NUMBER_CLEANUP=yes \
-  NUMBER_LIMIT=15 \
-  NUMBER_LIMIT_IMPORTANT=8 \
+  NUMBER_LIMIT=20 \
+  NUMBER_LIMIT_IMPORTANT=10 \
   EMPTY_PRE_POST_CLEANUP=yes \
   ALLOW_USERS="$U" \
   SYNC_ACL=yes
-ok "limity: root (snapshoty tylko przy dnf-snap)"
+ok "limity: root (snapshoty tylko przy dnf)"
 
 sudo snapper -c home set-config \
   TIMELINE_CREATE=yes \
@@ -54,19 +54,19 @@ sudo systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
 ok "timery aktywne"
 
 # ─────────────────────────────────────────────────────────────
-step "5/5  Snapshot przed aktualizacja (obejscie braku wtyczki do dnf5)"
-sudo tee /usr/local/bin/dnf-snap >/dev/null <<'EOF'
-#!/usr/bin/env bash
-# Snapshot systemu przed transakcja dnf i po niej.
-DESC="dnf ${*:-upgrade}"
-PRE=$(sudo snapper -c root create -t pre -c number -p -d "$DESC") || exit 1
-# snapshot 'post' powstaje ZAWSZE, nawet gdy dnf sie wywroci
-trap 'sudo snapper -c root create -t post --pre-number "$PRE" -c number -d "$DESC"; \
-      echo "snapshot pre=$PRE (porownanie: snapper -c root status $PRE..$((PRE+1)))"' EXIT
-sudo dnf "${@:-upgrade}"
+step "5/5  Snapshot pre/post przy kazdej transakcji dnf (wtyczka actions dnf5)"
+sudo dnf install -y libdnf5-plugin-actions || exit 1
+sudo mkdir -p /etc/dnf/libdnf5-plugins/actions.d
+sudo tee /etc/dnf/libdnf5-plugins/actions.d/snapper.actions >/dev/null <<'EOF'
+# Snapshoty snappera (config "root") przed i po każdej transakcji dnf5.
+# Opis snapshotu = pełna komenda dnf. Sprzątanie: NUMBER_CLEANUP w configu root.
+# Format: callback:filtr_pakietów:kierunek:opcje:komenda
+pre_transaction::::/usr/bin/sh -c echo\ "tmp.cmd=$(ps\ -o\ command\ --no-headers\ -p\ '${pid}')"
+pre_transaction::::/usr/bin/sh -c echo\ "tmp.snapper_pre_number=$(snapper\ -c\ root\ create\ -c\ number\ -t\ pre\ -p\ -d\ '${tmp.cmd}')"
+post_transaction::::/usr/bin/sh -c [\ -n\ "${tmp.snapper_pre_number}"\ ]\ &&\ snapper\ -c\ root\ create\ -c\ number\ -t\ post\ --pre-number\ "${tmp.snapper_pre_number}"\ -d\ "${tmp.cmd}"\ ;\ echo\ tmp.snapper_pre_number\ ;\ echo\ tmp.cmd
 EOF
-sudo chmod +x /usr/local/bin/dnf-snap
-ok "polecenie: dnf-snap upgrade"
+sudo rm -f /usr/local/bin/dnf-snap   # stary wrapper z poprzedniej wersji skryptu
+ok "dnf (i aktualizacje z GNOME Software/Discover) robi snapshot pre/post"
 
 # ─────────────────────────────────────────────────────────────
 step "Pierwszy snapshot bazowy"
@@ -83,7 +83,7 @@ JAK UZYWAC
   snapper -c root list                    lista snapshotow systemu
   snapper -c home list                    lista snapshotow /home
   snapper -c home status 3..5             co sie zmienilo miedzy 3 a 5
-  dnf-snap upgrade                        upgrade ze snapshotem pre/post
+  snapper -c root status 18..19           co zmienila transakcja dnf (pre..post)
 
 ODTWORZENIE PLIKU (najczestszy przypadek):
   ls /home/.snapshots/5/snapshot/pandetthe/
